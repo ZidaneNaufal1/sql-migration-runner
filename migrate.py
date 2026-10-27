@@ -81,11 +81,13 @@ def apply(db, folder):
                     c.rollback(); continue
                 c.set_authorizer(authorizer)
                 for statement in statements(sql): c.execute(statement)
-                c.set_authorizer(None)
+                # Python 3.10 can retain a denying callback when passed None.
+                # Replace it explicitly before recording history or committing.
+                c.set_authorizer(lambda *_: sqlite3.SQLITE_OK)
                 c.execute(f'INSERT INTO {TABLE}(version,filename,checksum) VALUES(?,?,?)',(version,name,digest))
                 c.commit(); completed.append(name)
             except BaseException:
-                c.set_authorizer(None); c.rollback(); raise
+                c.set_authorizer(lambda *_: sqlite3.SQLITE_OK); c.rollback(); raise
         return completed
     finally: c.close()
 
@@ -103,3 +105,4 @@ def main(argv=None):
 
 
 if __name__=='__main__': raise SystemExit(main())
+
